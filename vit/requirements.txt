@@ -1,0 +1,9 @@
+transformers
+datasets
+evaluate
+einops
+tqdm
+timm
+wandb
+ipykernel
+scikit-learn

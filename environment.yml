@@ -1,4 +1,4 @@
-name: torch16
+name: vit_torch16
 channels:
   - pytorch
   - conda-forge
