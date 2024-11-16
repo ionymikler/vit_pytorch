@@ -4,11 +4,6 @@ import numpy
 
 from torch.optim import Optimizer, AdamW, Adam, SGD
 
-# Own
-import cifar_utils
-import logger_utils
-
-
 def make_optimizer(optimizer_name, model:torch.nn.Module, lr)->Optimizer:
     if 'adamw' == optimizer_name:
         optimizer = AdamW(model.parameters(), lr)

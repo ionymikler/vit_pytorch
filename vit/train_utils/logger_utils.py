@@ -4,18 +4,28 @@ import os
 import random
 import torch
 
-def create_logger(log_file, rank=0):
+from typing import Union
+
+def create_logger(log_file, logger_name:str, log_level:str="INFO"):
     log_format = '%(asctime)s  %(levelname)5s  %(message)s'
-    logging.basicConfig(level=logging.INFO if rank == 0 else 'ERROR',
-                        format=log_format,
-                        filename=log_file)
+    level = logging.getLevelNamesMapping()[log_level]
+    assert level is not None, f"log_level name '{log_level}', not valid"
+
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(level)
+
+    # handlers
+    fh  = logging.FileHandler(log_file, 'w')
+    fh.setLevel(level)
+    fh.setFormatter(log_format)
+    logger.addHandler(fh)
     
     console = logging.StreamHandler()
-    console.setLevel(logging.INFO if rank == 0 else 'ERROR')
+    console.setLevel(level)
     console.setFormatter(logging.Formatter(log_format))
-    logging.getLogger(__name__).addHandler(console)
-    return logging.getLogger(__name__)
+    logger.addHandler(console)
 
+    return logger
 
 def get_unique_filename(filename):
     """
