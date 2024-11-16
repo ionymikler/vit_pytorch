@@ -7,13 +7,16 @@ import torch
 from typing import Union
 
 def create_logger(log_file, logger_name:str, log_level:str="INFO"):
-    log_format = '%(asctime)s  %(levelname)5s  %(message)s'
+    log_format = '%(asctime)s.%(msecs)03d [%(levelname)s]: %(message)s'
+    date_format = '%H:%M:%S'
     level = logging.getLevelNamesMapping()[log_level]
     assert level is not None, f"log_level name '{log_level}', not valid"
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)
 
+    # formatter
+    log_format = logging.Formatter(log_format, datefmt=date_format)
     # handlers
     fh  = logging.FileHandler(log_file, 'w')
     fh.setLevel(level)
@@ -22,10 +25,16 @@ def create_logger(log_file, logger_name:str, log_level:str="INFO"):
     
     console = logging.StreamHandler()
     console.setLevel(level)
-    console.setFormatter(logging.Formatter(log_format))
+    console.setFormatter(log_format)
     logger.addHandler(console)
 
     return logger
+
+def copy_logger(logger:logging.Logger, new_name:str):
+    new_logger = logging.getLogger(new_name)
+    new_logger.handlers = logger.handlers
+    new_logger.setLevel(logger.level)
+    return new_logger
 
 def get_unique_filename(filename):
     """

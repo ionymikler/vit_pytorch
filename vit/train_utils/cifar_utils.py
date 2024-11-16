@@ -1,8 +1,10 @@
-from datasets import DatasetDict
+from datasets import DatasetDict, Dataset
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 
-def get_cifar_label_dicts(cifar_dataset:DatasetDict, label_type:str):
+_CIFAR_DS_TRANSFORMS = Compose([ToTensor()])
+
+def get_cifar_label_dicts(cifar_dataset:Dataset, label_type:str):
     """
     label_type: str 'coarse' or 'fine'
     returns
@@ -11,23 +13,38 @@ def get_cifar_label_dicts(cifar_dataset:DatasetDict, label_type:str):
     """
     assert label_type in ("coarse","fine"), "label type must be 'coarse' or 'fine'"
     # Get label mappings
-    labels = cifar_dataset["train"].features[f"{label_type}_label"].names
+    labels = cifar_dataset.features[f"{label_type}_label"].names
 
     label2id = {str(label): str(i) for i, label in enumerate(labels)}
     id2label = {str(i): str(label) for i, label in enumerate(labels)}
 
     return label2id, id2label
 
-def make_cifar_dataloaders(dataset:DatasetDict, batch_size=1):
-    # Load the CIFAR dataset
-    cifar_train = dataset["train"]
-    cifar_test = dataset["test"]
+def dataloader_from_dataset(dataset:Dataset, batch_size=1):
+    def preprocess_transforms(data_examples):
+        data_examples["pixel_values"] = [_CIFAR_DS_TRANSFORMS(img) for img in data_examples["img"]]
+        del data_examples["img"]
+        return data_examples
 
-    # Define transforms
-    _transforms = Compose([ToTensor()])  # Add more transforms as needed to prevent overfitting
+    # Apply transformations
+    dataset = dataset.with_transform(preprocess_transforms)
+
+    # Create dataloaders
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        shuffle=True
+    )
+
+    return dataloader
+
+def dataloader_from_dataset_dict(dict:DatasetDict, batch_size=1):
+    # Load the CIFAR dataset
+    cifar_train = dict["train"]
+    cifar_test = dict["test"]
 
     def preprocess_transforms(data_examples):
-        data_examples["pixel_values"] = [_transforms(img) for img in data_examples["img"]]
+        data_examples["pixel_values"] = [_CIFAR_DS_TRANSFORMS(img) for img in data_examples["img"]]
         del data_examples["img"]
         return data_examples
 
