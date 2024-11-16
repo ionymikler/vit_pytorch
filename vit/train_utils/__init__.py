@@ -14,27 +14,30 @@ from train_utils.logger_utils import copy_logger
 
 class Trainer:
     def __init__(self,
-        model:torch.nn.Module, train_dataloader, validation_dataloader, validation_epoch_period,
-        optimizer, lr_scheduler, loss_function, num_epochs, device, logger):
+        model:torch.nn.Module, train_dataloader, validation_dataloader, validation_epoch_interval,
+        optimizer, lr_scheduler, loss_function, num_epochs, device, logger, save_model=False):
 
         self.model:torch.nn.Module = model
 
         self.train_dataloader:DataLoader = train_dataloader
         self.validation_dataloader:DataLoader = validation_dataloader
-        self.validation_epoch_period:int = validation_epoch_period
+        self.validation_epoch_interval:int = validation_epoch_interval
+
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.loss_function = loss_function
         self.device = device
         self.num_epochs = num_epochs
 
+        self.save_model = save_model
+
         self.logger = copy_logger(logger, "trainer")
 
     def train(self):
         self.logger.info('###################  Training  ##################')
         progress_bar = tqdm(range(self.num_epochs * len(self.train_dataloader)))
+        best_val_loss = float('inf')
         for epoch in range(self.num_epochs):
-
             # Training
             epoch_avg_train_loss = 0
             self.model.train()
@@ -58,7 +61,7 @@ class Trainer:
 
             # Validation
             # TODO: Abstract validation to a method that return just accuracy and epoch_loss
-            if epoch % self.validation_epoch_period == 0:
+            if epoch % self.validation_epoch_interval == 0:
                 self.logger.info(f'Validating at epoch {epoch}')
                 epoch_avg_val_loss = 0
                 with torch.no_grad():
@@ -77,11 +80,11 @@ class Trainer:
                     val_acc = correct_predictions / total_examples
                     epoch_avg_val_loss /= len(self.validation_dataloader)
 
-                    print(
+                    self.logger.info(
                         f'-- train loss {epoch_avg_train_loss:.3f} -- validation loss: {val_acc:.3f} -- validation accuracy: {epoch_avg_val_loss:.3f}')
-                    # if epoch_avg_val_loss <= best_val_loss and save_model:
-                    #     torch.save(self.model.state_dict(), 'model.pth')
-                    #     best_val_loss = epoch_avg_val_loss
+                    if epoch_avg_val_loss <= best_val_loss and self.save_model:
+                        torch.save(self.model.state_dict(), 'model.pth')
+                        best_val_loss = epoch_avg_val_loss
 
         self.logger.info("Trainig done")
 
@@ -91,7 +94,7 @@ def get_cfg(config_path:str):
     
 def get_args():
     parser = argparse.ArgumentParser(description='ViT')
-    parser.add_argument('--config', dest='config', help='settings of detection in yaml format')
+    parser.add_argument('--config', dest='config', help='confguration of training', default="/home/iony/DTU/f24/thesis/vit_pytorch/vit/config/vit_train.yml")
     parser.add_argument('-e', '--evaluate_only', action='store_true', default=False, help='evaluation only')
     return parser.parse_args()
 
@@ -112,3 +115,13 @@ def set_random_seed(seed):
 
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+
+def print_dict(dictionary, ident='', braces=1):
+  """ Recursively prints nested dictionaries."""
+
+  for key, value in dictionary.items():
+    if isinstance(value, dict):
+      print(f'{ident}{braces*"["}{key}{braces*"]"}')
+      print_dict(value, ident + '  ', braces + 1)
+    else:
+      print(f'{ident}{key} = {value}')

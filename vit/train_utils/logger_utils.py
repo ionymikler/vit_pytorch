@@ -4,7 +4,7 @@ import os
 import random
 import torch
 
-from typing import Union
+from logging import DEBUG
 
 def create_logger(log_file, logger_name:str, log_level:str="INFO"):
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)s]: %(message)s'
@@ -13,13 +13,13 @@ def create_logger(log_file, logger_name:str, log_level:str="INFO"):
     assert level is not None, f"log_level name '{log_level}', not valid"
 
     logger = logging.getLogger(logger_name)
-    logger.setLevel(level)
+    logger.setLevel(DEBUG) # logger minimum level, each handler can have a different level
 
     # formatter
     log_format = logging.Formatter(log_format, datefmt=date_format)
     # handlers
     fh  = logging.FileHandler(log_file, 'w')
-    fh.setLevel(level)
+    fh.setLevel(DEBUG)
     fh.setFormatter(log_format)
     logger.addHandler(fh)
     
