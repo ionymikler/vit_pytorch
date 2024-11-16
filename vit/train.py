@@ -33,8 +33,6 @@ def main():
     # logger = create_logger(cfg["log_filepath"])
     logger = create_logger(get_unique_filename("/zhome/57/8/181461/thesis/pytorch-vit/logs/vit_train"), "vit_train")
 
-    # TODO: Implement logger
-    
     ####### Dataset setup #######
     batch_size = 4
     cifar = load_dataset("uoft-cs/cifar100")
@@ -65,24 +63,25 @@ def main():
     logger.info('###################  Training  ##################')
     logger.info(f"Batch Size: {batch_size}, Learning Rate: {lr}")
 
-    # progress_bar = tqdm(range(num_training_steps))
-    # for epoch in range(num_epochs):
-    #     train_loss = 0
-    #     model.train()
-    #     for batch_idx, batch in enumerate(train_dataloader):
-    #         batch = {k: v.to(device) for k, v in batch.items()}
-    #         outputs = model(batch["pixel_values"])
+    progress_bar = tqdm(range(num_training_steps))
+    for epoch in range(num_epochs):
+        train_loss = 0
+        model.train()
+        for batch_idx, batch in enumerate(train_dataloader):
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(batch["pixel_values"])
 
-    #         loss = loss_function(outputs, batch[f"{train_label_type}_label"])
-    #         loss.backward()
-    #         train_loss += loss.item()
+            loss = loss_function(outputs, batch[f"{train_label_type}_label"])
+            loss.backward()
+            train_loss += loss.item()
 
-    #         optimizer.step()
-    #         lr_scheduler.step()
-    #         optimizer.zero_grad()
-    #         progress_bar.update(1)
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
+            progress_bar.update(1)
 
     logger.info("DONE")
+
 
 if __name__ == '__main__':
     main()
