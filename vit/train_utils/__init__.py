@@ -1,11 +1,15 @@
-import torch.nn as nn
+import random
+import torch
+import numpy
 
-from datasets import DatasetDict
 from torch.optim import Optimizer, AdamW, Adam, SGD
-from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor
 
-def make_optimizer(optimizer_name, model:nn.Module, lr)->Optimizer:
+# Own
+import cifar_utils
+import logger_utils
+
+
+def make_optimizer(optimizer_name, model:torch.nn.Module, lr)->Optimizer:
     if 'adamw' == optimizer_name:
         optimizer = AdamW(model.parameters(), lr)
     else:
@@ -13,50 +17,13 @@ def make_optimizer(optimizer_name, model:nn.Module, lr)->Optimizer:
 
     return optimizer
 
-def get_cifar_label_dicts(cifar_dataset:DatasetDict, label_type:str):
-    """
-    label_type: str 'coarse' or 'fine'
-    returns
-        label2id: dict
-        id2label: dict
-    """
-    assert label_type in ("coarse","fine"), "label type must be 'coarse' or 'fine'"
-    # Get label mappings
-    labels = cifar_dataset["train"].features[f"{label_type}_label"].names
 
-    label2id = {str(label): str(i) for i, label in enumerate(labels)}
-    id2label = {str(i): str(label) for i, label in enumerate(labels)}
+def set_random_seed(seed):
+    random.seed(seed)
+    numpy.random.seed(seed ** 2)
+    torch.manual_seed(seed ** 3)
+    torch.cuda.manual_seed(seed ** 4)
+    torch.cuda.manual_seed_all(seed ** 4)
 
-    return label2id, id2label
-
-def make_cifar_dataloaders(dataset:DatasetDict, batch_size=1):
-    # Load the CIFAR dataset
-    cifar_train = dataset["train"]
-    cifar_test = dataset["test"]
-
-    # Define transforms
-    _transforms = Compose([ToTensor()])  # Add more transforms as needed to prevent overfitting
-
-    def preprocess_transforms(data_examples):
-        data_examples["pixel_values"] = [_transforms(img) for img in data_examples["img"]]
-        del data_examples["img"]
-        return data_examples
-
-    # Apply transformations
-    cifar_train = cifar_train.with_transform(preprocess_transforms)
-    cifar_test = cifar_test.with_transform(preprocess_transforms)
-
-    # Create dataloaders
-    train_dataloader = DataLoader(
-        dataset=cifar_train,
-        batch_size=batch_size,
-        shuffle=True
-    )
-
-    test_dataloader = DataLoader(
-        dataset=cifar_test,
-        batch_size=batch_size,
-        shuffle=True
-    )
-
-    return train_dataloader, test_dataloader
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True

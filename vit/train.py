@@ -10,7 +10,11 @@ from tqdm.auto import tqdm
 from datasets import load_dataset
 from transformers import get_scheduler
 
-import train_utils
+# Own
+from train_utils import make_optimizer
+from train_utils import cifar_utils
+from train_utils.logger_utils import create_logger, get_unique_filename
+
 from vit import VisionTransformer
 
 def get_cfg(config_path:str):
@@ -26,15 +30,18 @@ def get_args():
 def main():
     args = get_args()
     # cfg = get_cfg(args.config)
+    # logger = create_logger(cfg["log_filepath"])
+    logger = create_logger(get_unique_filename("./logs/vit_train.log"))
 
     # TODO: Implement logger
     
     ####### Dataset setup #######
+    batch_size = 4
     cifar = load_dataset("uoft-cs/cifar100")
     train_label_type = "coarse" # cfg["dataset"]["train_label_type"]
 
-    train_dataloader, test_dataloader = train_utils.make_cifar_dataloaders(cifar, batch_size=4)
-    label2id_coarse, id2label_coarse = train_utils.get_cifar_label_dicts(cifar, train_label_type)
+    train_dataloader, test_dataloader = cifar_utils.make_cifar_dataloaders(cifar, batch_size=batch_size)
+    label2id_coarse, id2label_coarse = cifar_utils.get_cifar_label_dicts(cifar, train_label_type)
 
     model = VisionTransformer(
         image_size=32, use_linear_patch=True, num_classes=len(label2id_coarse.keys()))
@@ -43,9 +50,10 @@ def main():
     ####### Optimizer and lr-scheduler #######
     # TODO: review ViT paper to implement correct lr's
     num_epochs = 3 # TODO: set a param in the config file
+    lr = 0.003
     num_training_steps = num_epochs * len(train_dataloader)
 
-    optimizer = train_utils.make_optimizer(optimizer_name='adamw',model=model, lr=0.003)
+    optimizer = make_optimizer(optimizer_name='adamw',model=model, lr=0.003)
     lr_scheduler = get_scheduler(
         name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
     )
@@ -55,6 +63,9 @@ def main():
     model.to(device)
 
     progress_bar = tqdm(range(num_training_steps))
+
+    logger.info('###################  Training  ##################')
+    logger.info(f"Batch Size: {batch_size}, Learning Rate: {lr}")
 
     for epoch in range(num_epochs):
         train_loss = 0
