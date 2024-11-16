@@ -11,7 +11,7 @@ class VisionTransformer(nn.Module):
         image_size=224,
         patch_size=16,
         in_channels=3,
-        embedding_dim=768,
+        embedding_dim=768, #ViT-Base model
         num_layers=12,
         num_heads=12,
         qkv_bias=True,
@@ -19,9 +19,9 @@ class VisionTransformer(nn.Module):
         use_revised_ffn=False,
         dropout_rate=0.0,
         attn_dropout_rate=0.0,
-        use_conv_stem=True,
+        use_conv_stem=False,
         use_conv_patch=False,
-        use_linear_patch=False,
+        use_linear_patch=True,
         use_conv_stem_original=True,
         use_stem_scaled_relu=False,
         hidden_dims=None,
@@ -43,7 +43,7 @@ class VisionTransformer(nn.Module):
             conv_stem=use_conv_stem,
             conv_stem_original=use_conv_stem_original,
             conv_stem_scaled_relu=use_stem_scaled_relu,
-            position_embedding_dropout=dropout_rate,
+            position_embedding_dropout_rate=dropout_rate,
             cls_head=cls_head,
         )
 
@@ -58,6 +58,7 @@ class VisionTransformer(nn.Module):
             qkv_bias=qkv_bias,
             revised=use_revised_ffn,
         )
+        
         self.post_transformer_ln = nn.LayerNorm(embedding_dim)
 
         # output layer

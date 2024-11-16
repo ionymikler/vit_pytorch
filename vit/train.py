@@ -1,81 +1,76 @@
-# %%
-from datasets import load_dataset, Dataset
-from torchvision.transforms import Compose, ToTensor
-from torch.utils.data import DataLoader
+# Made by: Jonathan Mikler
+# Creation date: 2024-11-15
+import os
+import yaml
+import argparse
+import torch
+import torch.nn as nn
+
+from tqdm.auto import tqdm
+from datasets import load_dataset
+from transformers import get_scheduler
+
+import train_utils
 from vit import VisionTransformer
 
-def get_cifar_label_dicts(cifar_dataset:Dataset, label_type:str):
-    """
-    label_type: str 'coarse' or 'fine'
-    returns
-        label2id: dict
-        id2label: dict
-    """
-    assert label_type in ("coarse","fine"), "label type must be 'coarse' or 'fine'"
-    # Get label mappings
-    labels = cifar_dataset["train"].features[f"{label_type}_label"].names
+def get_cfg(config_path:str):
+    assert (os.path.exists(config_path)), "config file path does not exists"
+    return yaml.load(open(config_path, 'r'), Loader=yaml.Loader)
+    
+def get_args():
+    parser = argparse.ArgumentParser(description='ViT')
+    parser.add_argument('--config', dest='config', help='settings of detection in yaml format')
+    parser.add_argument('-e', '--evaluate_only', action='store_true', default=False, help='evaluation only')
+    return parser.parse_args()
 
-    label2id = {str(label): str(i) for i, label in enumerate(labels)}
-    id2label = {str(i): str(label) for i, label in enumerate(labels)}
+def main():
+    args = get_args()
+    # cfg = get_cfg(args.config)
 
-    return label2id, id2label
-
-def get_cifar_dataloaders(batch_size=2):
-    # Load the CIFAR dataset
+    # TODO: Implement logger
+    
+    ####### Dataset setup #######
     cifar = load_dataset("uoft-cs/cifar100")
-    cifar_train = cifar["train"]
-    cifar_test = cifar["test"]
+    train_label_type = "coarse" # cfg["dataset"]["train_label_type"]
 
-    # Define transforms
-    _transforms = Compose([ToTensor()])  # Add more transforms as needed to prevent overfitting
+    train_dataloader, test_dataloader = train_utils.make_cifar_dataloaders(cifar, batch_size=4)
+    label2id_coarse, id2label_coarse = train_utils.get_cifar_label_dicts(cifar, train_label_type)
 
-    def preprocess_transforms(data_examples):
-        data_examples["pixel_values"] = [_transforms(img) for img in data_examples["img"]]
-        del data_examples["img"]
-        return data_examples
+    model = VisionTransformer(
+        image_size=32, use_linear_patch=True, num_classes=len(label2id_coarse.keys()))
 
-    # Apply transformations
-    cifar_train = cifar_train.with_transform(preprocess_transforms)
-    cifar_test = cifar_test.with_transform(preprocess_transforms)
 
-    # Create dataloaders
-    train_dataloader = DataLoader(
-        dataset=cifar_train,
-        batch_size=batch_size,
-        shuffle=True
+    ####### Optimizer and lr-scheduler #######
+    # TODO: review ViT paper to implement correct lr's
+    num_epochs = 3 # TODO: set a param in the config file
+    num_training_steps = num_epochs * len(train_dataloader)
+
+    optimizer = train_utils.make_optimizer(optimizer_name='adamw',model=model, lr=0.003)
+    lr_scheduler = get_scheduler(
+        name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
     )
+    loss_function = nn.CrossEntropyLoss()
 
-    test_dataloader = DataLoader(
-        dataset=cifar_test,
-        batch_size=batch_size,
-        shuffle=True
-    )
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
 
-    return train_dataloader, test_dataloader
+    progress_bar = tqdm(range(num_training_steps))
 
-train_dataloader, test_dataloader = get_cifar_dataloaders(batch_size=4)
+    for epoch in range(num_epochs):
+        train_loss = 0
+        model.train()
+        for batch_idx, batch in enumerate(train_dataloader):
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(batch["pixel_values"])
 
-cifar = load_dataset("uoft-cs/cifar100")
-label2id, id2label = get_cifar_label_dicts(cifar, 'coarse')
+            loss = loss_function(outputs, batch[f"{train_label_type}_label"])
+            loss.backward()
+            train_loss += loss.item()
 
-num_clases_coarse = len(label2id.keys())
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
+            progress_bar.update(1)
 
-batch = next(iter(train_dataloader))
-
-batch["pixel_values"].shape
-
-vit = VisionTransformer(
-    image_size=32, use_linear_patch=True, num_classes=num_clases_coarse)
-
-pred = vit(batch["pixel_values"])
-# # %%
-# from transformers import AutoModelForImageClassification
-
-# model = AutoModelForImageClassification.from_pretrained("google/vit-base-patch16-224")
-
-# # %%
-# from transformers import AutoImageProcessor
-
-# image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
-
-
+if __name__ == '__main__':
+    main()

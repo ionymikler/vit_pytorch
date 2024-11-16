@@ -15,13 +15,13 @@ class EmbeddingStem(nn.Module):
         patch_size=16,
         channels=3,
         embedding_dim=768,
+        position_embedding_dropout_rate=0.0,
         hidden_dims=None,
         conv_patch=False,
         linear_patch=False,
         conv_stem=True,
         conv_stem_original=True,
         conv_stem_scaled_relu=False,
-        position_embedding_dropout=None,
         cls_head=True,
     ):
         super(EmbeddingStem, self).__init__()
@@ -37,8 +37,7 @@ class EmbeddingStem(nn.Module):
             image_height % patch_height == 0 and image_width % patch_width == 0
         ), "Image dimensions must be divisible by the patch size."
 
-        assert not (
-            conv_stem and cls_head
+        assert not (conv_stem and cls_head
         ), "Cannot use [CLS] token approach with full conv stems for ViT"
 
         if linear_patch or conv_patch:
@@ -56,7 +55,7 @@ class EmbeddingStem(nn.Module):
             self.pos_embed = nn.Parameter(
                 torch.zeros(1, num_patches, embedding_dim)
             )
-            self.pos_drop = nn.Dropout(p=position_embedding_dropout)
+            self.pos_drop = nn.Dropout(p=position_embedding_dropout_rate)
 
         if conv_patch:
             self.projection = nn.Sequential(
@@ -74,8 +73,8 @@ class EmbeddingStem(nn.Module):
                     'b c (h p1) (w p2) -> b (h w) (p1 p2 c)',
                     p1=patch_height,
                     p2=patch_width,
-                ),
-                nn.Linear(patch_dim, embedding_dim),
+                ), # flattening
+                nn.Linear(patch_dim, embedding_dim), # projection
             )
         elif conv_stem:
             assert (
@@ -170,7 +169,6 @@ class EmbeddingStem(nn.Module):
             x = self.projection(x)
             x = x.flatten(2).transpose(1, 2)
             return x
-
         # paths for cls_token / position embedding
         elif self.linear_patch:
             x = self.projection(x)
