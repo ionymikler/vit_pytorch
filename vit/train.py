@@ -1,5 +1,6 @@
 # Made by: Jonathan Mikler
 # Creation date: 2024-11-15
+import os
 import torch
 import torch.nn as nn
 
@@ -8,37 +9,47 @@ from datasets import load_dataset, DatasetDict, Dataset
 from transformers import get_scheduler
 
 # Own
-from train_utils import make_optimizer, print_dict
-from train_utils import Trainer, cifar_utils, get_args, get_cfg
+import train_utils.cifar_utils as cifar_utils
+from train_utils.cifar_utils import get_label_dicts
+from train_utils.trainer import Trainer
+from train_utils import make_optimizer, print_dict, get_args, get_cfg
 from train_utils.logger_utils import create_logger, get_unique_filename
 
 from vision_transformer import VisionTransformer
+
+def dataloaders_from_cfg(cfg:dict):
+    batch_size = cfg["training"]["batch_size"]
+    cifar_train:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["train_split"])
+    cifar_validation:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["validation_split"])
+    cifar_test:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["test_split"])
+
+    train_dataloader = cifar_utils.dataloader_from_dataset(cifar_train, batch_size=batch_size)
+    validation_dataloader = cifar_utils.dataloader_from_dataset(cifar_validation, batch_size=batch_size)
+    test_dataloader = cifar_utils.dataloader_from_dataset(cifar_test, batch_size=batch_size)
+
+    return train_dataloader, validation_dataloader, test_dataloader
 
 def main():
     args = get_args()
     cfg = get_cfg(args.config)
     print_dict(cfg) # TODO: improve print with logger
 
-    unique_logfile_path = get_unique_filename(cfg["log_filepath"])
-    logger = create_logger(unique_logfile_path, "vit_train")
-
-    logger.info(f"all logs saved in {unique_logfile_path}")
+    log_filepath = os.path.join(cfg["log_dir"], cfg["log_filename"])
+    
+    logger = create_logger(name="vit_train", file_path=log_filepath )
 
     ####### Dataset setup #######
     logger.info("Setting up dataset")
-    batch_size = cfg["training"]["batch_size"]
+    dataset_cfg = cfg["cifar_dataset"]
 
-    cifar_train:Dataset = load_dataset("uoft-cs/cifar100", split="train[:100]")
-    cifar_validation:Dataset = load_dataset("uoft-cs/cifar100", split="test[:10]")
+    label2id, id2label = get_label_dicts(dataset_cfg["label_type"])
 
-    train_label_type = cfg["cifar_dataset"]["train_label_type"]
-
-    train_dataloader = cifar_utils.dataloader_from_dataset(cifar_train, batch_size=batch_size)
-    validation_dataloader = cifar_utils.dataloader_from_dataset(cifar_validation, batch_size=batch_size)
-    label2id_coarse, id2label_coarse = cifar_utils.get_cifar_label_dicts(cifar_train, train_label_type)
-
+    train_dataloader, validation_dataloader, test_dataloader = dataloaders_from_cfg(cfg)
+    
     model = VisionTransformer(
-        image_size=cfg["cifar_dataset"]["image_size"], use_linear_patch=True, num_classes=len(label2id_coarse.keys()))
+        image_size=cfg["cifar_dataset"]["image_size"], use_linear_patch=True, num_classes=len(label2id.keys()))
+
+    logger.info("Dataset setup complete")
 
     ####### Optimizer and lr-scheduler #######
     # TODO: review ViT paper to implement correct lr's
@@ -56,11 +67,17 @@ def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
 
-    trainer = Trainer(
-        model,
-        train_dataloader, validation_dataloader, cfg["training"]["validation_epoch_interval"],
-        optimizer, lr_scheduler, loss_function, num_epochs, device=device, logger=logger)
+    trainer = Trainer(model,
+        train_dataloader, validation_dataloader, test_dataloader,
+        optimizer, lr_scheduler, loss_function, device)
+    trainer.set_cfg_params(cfg["training"])
+    trainer.set_logger(logger)
+
+    logger.info('###################  Training  ##################')
     trainer.train()
+
+    logger.info('###################  Testing  ##################')
+    trainer.test()
 
     logger.info("DONE")
 

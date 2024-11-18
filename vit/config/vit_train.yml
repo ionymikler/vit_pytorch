@@ -1,7 +1,12 @@
-log_filepath: "logs/vit_train.log"
+log_dir: "/home/iony/DTU/f24/thesis/vit_pytorch/logs"
+log_filename: "vit_train.log"
 
 cifar_dataset:
-  train_label_type: "coarse"
+  label_type: "coarse"
+  train_split: "train[:100]"
+  validation_split: "test[:10]"
+  test_split: "test[:100]"
+
   image_size: 32
 
 optimizer:
@@ -16,3 +21,4 @@ training:
   num_epochs: 3
   validation_epoch_interval: 1
   batch_size: 2
+  results_dir: "/home/iony/DTU/f24/thesis/vit_pytorch/results"

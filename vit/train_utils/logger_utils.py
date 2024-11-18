@@ -2,23 +2,22 @@ import logging
 import numpy as np
 import os
 import random
-import torch
 
 from logging import DEBUG
 
-def create_logger(log_file, logger_name:str, log_level:str="INFO"):
+def create_logger(file_path, name:str, log_level:str="INFO"):
     log_format = '%(asctime)s.%(msecs)03d [%(levelname)s]: %(message)s'
     date_format = '%H:%M:%S'
     level = logging.getLevelNamesMapping()[log_level]
     assert level is not None, f"log_level name '{log_level}', not valid"
 
-    logger = logging.getLogger(logger_name)
+    logger = logging.getLogger(name)
     logger.setLevel(DEBUG) # logger minimum level, each handler can have a different level
 
     # formatter
     log_format = logging.Formatter(log_format, datefmt=date_format)
     # handlers
-    fh  = logging.FileHandler(log_file, 'w')
+    fh  = logging.FileHandler(file_path, 'w')
     fh.setLevel(DEBUG)
     fh.setFormatter(log_format)
     logger.addHandler(fh)
@@ -27,6 +26,8 @@ def create_logger(log_file, logger_name:str, log_level:str="INFO"):
     console.setLevel(level)
     console.setFormatter(log_format)
     logger.addHandler(console)
+
+    logger.info(f"Log saved in {file_path}")
 
     return logger
 
