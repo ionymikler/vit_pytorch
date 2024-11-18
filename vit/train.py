@@ -2,9 +2,11 @@
 # Creation date: 2024-11-15
 import os
 import torch
+
 import torch.nn as nn
 
 from tqdm.auto import tqdm
+from datetime import datetime
 from datasets import load_dataset, DatasetDict, Dataset
 from transformers import get_scheduler
 
@@ -34,10 +36,10 @@ def main():
     cfg = get_cfg(args.config)
     print_dict(cfg) # TODO: improve print with logger
 
-    log_filepath = os.path.join(cfg["log_dir"], cfg["log_filename"])
-    
-    logger = create_logger(name="vit_train", file_path=log_filepath )
+    _log_dir = cfg["log_dir"] if os.path.isabs(cfg["log_dir"]) else os.path.join(cfg["base_path"], cfg["log_dir"])
+    logger = create_logger(name="vit_train", file_path=os.path.join(_log_dir, cfg["log_filename"]) )
 
+    logger.info(f"loading configration from {args.config}")
     ####### Dataset setup #######
     logger.info("Setting up dataset")
     dataset_cfg = cfg["cifar_dataset"]
@@ -51,9 +53,8 @@ def main():
 
     logger.info("Dataset setup complete")
 
-    ####### Optimizer and lr-scheduler #######
+    ####### Training setup #######
     # TODO: review ViT paper to implement correct lr's
-
     num_epochs = cfg["training"]["num_epochs"]
     lr = cfg["lr_scheduler"]["lr"]
     num_training_steps = num_epochs * len(train_dataloader)
@@ -70,6 +71,9 @@ def main():
     trainer = Trainer(model,
         train_dataloader, validation_dataloader, test_dataloader,
         optimizer, lr_scheduler, loss_function, device)
+    
+    _final_results_dir = os.path.join(cfg["training"]["results_dir"], f"vit_{datetime.now().strftime('%H_%M_%S')}")
+    _final_results_dir = _final_results_dir if os.path.isabs(_final_results_dir) else os.path.join(cfg["base_path"], _final_results_dir)
     trainer.set_cfg_params(cfg["training"])
     trainer.set_logger(logger)
 

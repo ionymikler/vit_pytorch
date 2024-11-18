@@ -13,12 +13,12 @@ from torch.optim import Optimizer, AdamW, Adam, SGD
 from train_utils.logger_utils import copy_logger
 
 def get_cfg(config_path:str):
-    assert (os.path.exists(config_path)), "config file path does not exists"
+    assert (os.path.exists(config_path)), f"file {config_path} path does not exists"
     return yaml.load(open(config_path, 'r'), Loader=yaml.Loader)
     
 def get_args():
     parser = argparse.ArgumentParser(description='ViT')
-    parser.add_argument('--config', dest='config', help='confguration of training', default="/home/iony/DTU/f24/thesis/vit_pytorch/vit/config/vit_train.yml")
+    parser.add_argument('--config', dest='config', help='confguration of training', default="config/vit_train.yml")
     parser.add_argument('-e', '--evaluate_only', action='store_true', default=False, help='evaluation only')
     return parser.parse_args()
 

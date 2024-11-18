@@ -2,7 +2,6 @@
 import os
 import torch
 import json
-from datetime import datetime
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -32,7 +31,7 @@ class Trainer:
         self.validation_epoch_interval:int = cfg["validation_epoch_interval"]
         self.num_epochs:int = cfg["num_epochs"]
 
-        self.results_dir = os.path.join(cfg["results_dir"], f"vit_{datetime.now().strftime('%H_%M_%S')}")
+        self.results_dir = cfg["results_dir"]
         os.makedirs(self.results_dir, exist_ok=True)
     
     def set_logger(self, logger):
