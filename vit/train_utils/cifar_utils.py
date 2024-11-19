@@ -1,4 +1,4 @@
-from datasets import DatasetDict, Dataset
+from datasets import DatasetDict, Dataset, load_dataset
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 
@@ -146,7 +146,20 @@ def get_label_dicts(label_type:str):
         return COARSE_ID2LABEL, COARSE_LABEL2ID
     return FINE_ID2LABEL, FINE_LABEL2ID
 
-def dataloader_from_dataset(dataset:Dataset, batch_size=1):
+def dataloaders_from_cfg(cfg:dict):
+    batch_size = cfg["training"]["batch_size"]
+    cifar_train:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["train_split"])
+    cifar_validation:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["validation_split"])
+    cifar_test:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["test_split"])
+
+    train_dataloader = _dataloader_from_dataset(cifar_train, batch_size=batch_size)
+    validation_dataloader = _dataloader_from_dataset(cifar_validation, batch_size=batch_size)
+    test_dataloader = _dataloader_from_dataset(cifar_test, batch_size=batch_size)
+
+    return train_dataloader, validation_dataloader, test_dataloader
+
+
+def _dataloader_from_dataset(dataset:Dataset, batch_size=1):
     def preprocess_transforms(data_examples):
         data_examples["pixel_values"] = [_CIFAR_DS_TRANSFORMS(img) for img in data_examples["img"]]
         del data_examples["img"]
@@ -163,32 +176,3 @@ def dataloader_from_dataset(dataset:Dataset, batch_size=1):
     )
 
     return dataloader
-
-def dataloader_from_dataset_dict(dict:DatasetDict, batch_size=1):
-    # Load the CIFAR dataset
-    cifar_train = dict["train"]
-    cifar_test = dict["test"]
-
-    def preprocess_transforms(data_examples):
-        data_examples["pixel_values"] = [_CIFAR_DS_TRANSFORMS(img) for img in data_examples["img"]]
-        del data_examples["img"]
-        return data_examples
-
-    # Apply transformations
-    cifar_train = cifar_train.with_transform(preprocess_transforms)
-    cifar_test = cifar_test.with_transform(preprocess_transforms)
-
-    # Create dataloaders
-    train_dataloader = DataLoader(
-        dataset=cifar_train,
-        batch_size=batch_size,
-        shuffle=True
-    )
-
-    test_dataloader = DataLoader(
-        dataset=cifar_test,
-        batch_size=batch_size,
-        shuffle=True
-    )
-
-    return train_dataloader, test_dataloader

@@ -7,29 +7,15 @@ import torch.nn as nn
 
 from tqdm.auto import tqdm
 from datetime import datetime
-from datasets import load_dataset, DatasetDict, Dataset
 from transformers import get_scheduler
 
 # Own
 import train_utils.cifar_utils as cifar_utils
-from train_utils.cifar_utils import get_label_dicts
 from train_utils.trainer import Trainer
 from train_utils import make_optimizer, print_dict, get_args, get_cfg
 from train_utils.logger_utils import create_logger, get_unique_filename
 
 from vision_transformer import VisionTransformer
-
-def dataloaders_from_cfg(cfg:dict):
-    batch_size = cfg["training"]["batch_size"]
-    cifar_train:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["train_split"])
-    cifar_validation:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["validation_split"])
-    cifar_test:Dataset = load_dataset("uoft-cs/cifar100", split=cfg["cifar_dataset"]["test_split"])
-
-    train_dataloader = cifar_utils.dataloader_from_dataset(cifar_train, batch_size=batch_size)
-    validation_dataloader = cifar_utils.dataloader_from_dataset(cifar_validation, batch_size=batch_size)
-    test_dataloader = cifar_utils.dataloader_from_dataset(cifar_test, batch_size=batch_size)
-
-    return train_dataloader, validation_dataloader, test_dataloader
 
 def main():
     args = get_args()
@@ -44,9 +30,9 @@ def main():
     logger.info("Setting up dataset")
     dataset_cfg = cfg["cifar_dataset"]
 
-    label2id, id2label = get_label_dicts(dataset_cfg["label_type"])
+    label2id, id2label = cifar_utils.get_label_dicts(dataset_cfg["label_type"])
 
-    train_dataloader, validation_dataloader, test_dataloader = dataloaders_from_cfg(cfg)
+    train_dataloader, validation_dataloader, test_dataloader = cifar_utils.dataloaders_from_cfg(cfg)
     
     model = VisionTransformer(
         image_size=cfg["cifar_dataset"]["image_size"], use_linear_patch=True, num_classes=len(label2id.keys()))
